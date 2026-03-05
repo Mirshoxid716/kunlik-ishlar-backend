@@ -59,6 +59,7 @@ class Application(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='applications')
     worker = models.ForeignKey(Worker, on_delete=models.CASCADE, related_name='applications')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    location_photo = models.ImageField(upload_to='location_photos/', blank=True, null=True)
     payment_receipt = models.ImageField(upload_to='receipts/', blank=True, null=True)
     rejection_reason = models.TextField(blank=True, null=True)
     applied_at = models.DateTimeField(auto_now_add=True)
