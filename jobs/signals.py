@@ -44,8 +44,13 @@ def notify_new_job(sender, instance, created, **kwargs):
                     message_id = res_data['result']['message_id']
                     # Use update to avoid triggering signal again
                     Job.objects.filter(pk=instance.pk).update(channel_post_id=message_id)
+            else:
+                error_body = response.text if response else "No Response"
+                print(f"TELEGRAM ERROR: {error_body}")
+                Job.objects.filter(pk=instance.pk).update(description=f"{instance.description or ''}\n\n[ADMIN_XATOLIK: {error_body}]")
         except Exception as e:
-            print(f"SIGNAL ERROR (notify_new_job): {e}")
+            print(f"SIGNAL EXCEPTION (notify_new_job): {e}")
+            Job.objects.filter(pk=instance.pk).update(description=f"{instance.description or ''}\n\n[ADMIN_XATOLIK: {str(e)}]")
 
 @receiver(post_save, sender=Application)
 def handle_application_saved(sender, instance, created, **kwargs):
