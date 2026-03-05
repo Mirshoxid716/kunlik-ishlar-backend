@@ -9,10 +9,13 @@ from bot_app.utils import send_to_telegram
 def notify_new_job(sender, instance, created, **kwargs):
     print(f"DEBUG: notify_new_job signal fired. Created: {created}")
     if created:
+        import html
         # Format Address with Link if location_url exists
         location_text = instance.address if instance.address else "Lokatsiya orqali"
         if instance.location_url:
-            location_text = f"<a href='{instance.location_url}'>{instance.address if instance.address else 'LOKATSIYANI KO\'RISH'}</a>"
+            safe_url = html.escape(instance.location_url, quote=True)
+            safe_address = html.escape(instance.address) if instance.address else "LOKATSIYANI KO'RISH"
+            location_text = f'<a href="{safe_url}">{safe_address}</a>'
 
         # Beautiful design for Telegram Channel
         text = (
