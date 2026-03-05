@@ -1,0 +1,12 @@
+django
+djangorestframework
+django-cors-headers
+aiogram
+python-dotenv
+adrf
+requests
+aiohttp
+gunicorn
+whitenoise
+psycopg2-binary
+dj-database-url
