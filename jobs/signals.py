@@ -38,14 +38,14 @@ def notify_new_job(sender, instance, created, **kwargs):
         
         try:
             response = send_to_telegram(text, reply_markup=json.dumps(reply_markup))
-            if response and response.status_code == 200:
+            if response is not None and response.status_code == 200:
                 res_data = response.json()
                 if res_data.get('ok'):
                     message_id = res_data['result']['message_id']
                     # Use update to avoid triggering signal again
                     Job.objects.filter(pk=instance.pk).update(channel_post_id=message_id)
             else:
-                error_body = response.text if response else "No Response"
+                error_body = response.text if response is not None else "Text was blank (None)"
                 print(f"TELEGRAM ERROR: {error_body}")
                 Job.objects.filter(pk=instance.pk).update(description=f"{instance.description or ''}\n\n[ADMIN_XATOLIK: {error_body}]")
         except Exception as e:
