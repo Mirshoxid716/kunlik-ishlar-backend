@@ -44,36 +44,50 @@ class JobViewSet(viewsets.ModelViewSet):
         for i, app in enumerate(apps, 1):
             workers_info += f"{i}. {app.worker.full_name} - {app.worker.phone_number}\n"
 
-        text = (
-            f"<b>📊 ISH BO'YIChA YAKUNIY RO'YXAT</b>\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"<b>💼 Ish:</b> {job.title} (#{job.unical_id})\n"
-            f"<b>👥 Jami ishchilar:</b> {apps.count()}\n\n"
-            f"<b>👤 Ishchilar ro'yxati:</b>\n{workers_info}\n"
-            f"✅ Barcha ishchilar bilan bog'lanishingiz mumkin."
-        )
+        try:
+            import html
+            admin_id = os.getenv("ADMIN_ID", "5669525697")
+            
+            safe_title = html.escape(str(job.title))
+            safe_unical = html.escape(str(job.unical_id))
+            
+            text = (
+                f"<b>📊 ISH BO'YIChA YAKUNIY RO'YXAT</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"<b>💼 Ish:</b> {safe_title} (#{safe_unical})\n"
+                f"<b>👥 Jami ishchilar:</b> {apps.count()}\n\n"
+                f"<b>👤 Ishchilar ro'yxati:</b>\n{workers_info}\n"
+                f"✅ Barcha ishchilar bilan bog'lanishingiz mumkin."
+            )
 
-        admin_id = os.getenv("ADMIN_ID", "5669525697")
-        admin_alert_sent = False
+            notify_sent = False
 
-        if job.client_tg_username:
-            client_username = job.client_tg_username.strip().replace('@', '')
-            client_worker = Worker.objects.filter(username__iexact=client_username).first()
-            if client_worker:
-                send_to_telegram(text, chat_id=client_worker.telegram_id)
-                return Response({'status': 'sent_to_client'})
-            else:
-                admin_alert = (
-                    f"⚠️ <b>KLIENT TOPILMADI</b>\n\n"
-                    f"Mijoz @{client_username} botda yo'q. "
-                    f"Ro'yxatni unga qo'lda yuboring:\n\n{text}"
-                )
-                send_to_telegram(admin_alert, chat_id=admin_id)
-                return Response({'status': 'sent_to_admin_as_alert', 'message': 'Klient botda yo\'qligi sababli adminga yuborildi'})
-        
-        # Fallback to admin if no username
-        send_to_telegram(text, chat_id=admin_id)
-        return Response({'status': 'sent_to_admin'})
+            if job.client_tg_username:
+                client_username = job.client_tg_username.strip().replace('@', '')
+                client_worker = Worker.objects.filter(username__iexact=client_username).first()
+                if client_worker:
+                    res = send_to_telegram(text, chat_id=client_worker.telegram_id)
+                    if res and res.status_code == 200:
+                        notify_sent = True
+                        return Response({'status': 'sent_to_client'})
+                    else:
+                        print(f"Failed to send full list to client directly. Status: {res.status_code if res else 'None'}")
+                
+                if not notify_sent:
+                    admin_alert = (
+                        f"⚠️ <b>DIQQAT! KLIYENTGA XABAR BORMADI</b>\n\n"
+                        f"Mijoz @{client_username} ga bot yakuniy ro'yxatni yetkazib bera olmadi (bot ochilmagan yoki o'chirilgan).\n"
+                        f"Ro'yxatni unga qo'lda yuboring:\n\n{text}"
+                    )
+                    send_to_telegram(admin_alert, chat_id=admin_id)
+                    return Response({'status': 'sent_to_admin_as_alert', 'message': 'Klient botda yo\'qligi sababli adminga yuborildi'})
+            
+            # Fallback to admin if no username
+            send_to_telegram(text, chat_id=admin_id)
+            return Response({'status': 'sent_to_admin'})
+        except Exception as e:
+            print(f"TELEGRAM ERROR in notify_client: {e}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class WorkerViewSet(viewsets.ModelViewSet):
     queryset = Worker.objects.all()
@@ -129,12 +143,18 @@ class ApplicationViewSet(viewsets.ModelViewSet):
 
             # Notify Client & Admin (Try to notify)
             try:
+                import html
                 admin_id = os.getenv("ADMIN_ID", "5669525697")
+                
+                safe_title = html.escape(str(instance.job.title))
+                safe_name = html.escape(str(instance.worker.full_name))
+                safe_unical = html.escape(str(instance.job.unical_id))
+                
                 client_text = (
                     f"<b>🤝 ISHCHI TASDIQLANDI!</b>\n"
                     f"━━━━━━━━━━━━━━━━━━━━\n\n"
-                    f"<b>💼 Ish:</b> {instance.job.title} (#{instance.job.unical_id})\n"
-                    f"<b>👤 Ishchi:</b> {instance.worker.full_name}\n"
+                    f"<b>💼 Ish:</b> {safe_title} (#{safe_unical})\n"
+                    f"<b>👤 Ishchi:</b> {safe_name}\n"
                     f"<b>📞 Tel:</b> {instance.worker.phone_number}\n\n"
                     f"✅ Ishchi bilan bog'lanishingiz mumkin."
                 )
@@ -144,12 +164,16 @@ class ApplicationViewSet(viewsets.ModelViewSet):
                     client_username = instance.job.client_tg_username.strip().replace('@', '')
                     client_worker = Worker.objects.filter(username__iexact=client_username).first()
                     if client_worker:
-                        send_to_telegram(client_text, chat_id=client_worker.telegram_id)
-                        notify_sent = True
-                    else:
+                        res = send_to_telegram(client_text, chat_id=client_worker.telegram_id)
+                        if res and res.status_code == 200:
+                            notify_sent = True
+                        else:
+                            print(f"Failed to send to client directly. Status: {res.status_code if res else 'None'}")
+                    
+                    if not notify_sent:
                         admin_alert = (
-                            f"⚠️ <b>DIQQAT! KLIYENT BOTDA YO'Q</b>\n\n"
-                            f"Mijoz @{client_username} botdan ro'yxatdan o'tmagan. "
+                            f"⚠️ <b>DIQQAT! KLIYENTGA XABAR BORMADI</b>\n\n"
+                            f"Mijoz @{client_username} ga bot ishchi haqidagi ma'lumotni yetkazib bera olmadi (yoki u botni o'chirgan, yoki botdan ro'yxatdan o'tmagan).\n"
                             f"Unga quyidagi ishchi ma'lumotlarini qo'lda yuboring:\n\n"
                             f"{client_text}"
                         )
