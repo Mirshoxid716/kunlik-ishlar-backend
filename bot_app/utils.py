@@ -27,9 +27,13 @@ def send_to_telegram(text, reply_markup=None, chat_id=None):
         payload["reply_markup"] = reply_markup
     
     print(f"DEBUG: Sending to {payload['chat_id']}: {text[:100]}...")
-    response = requests.post(url, json=payload)
-    print(f"Telegram API Response: {response.status_code} - {response.text}")
-    return response
+    try:
+        response = requests.post(url, json=payload, timeout=5)
+        print(f"Telegram API Response: {response.status_code} - {response.text}")
+        return response
+    except Exception as e:
+        print(f"Telegram API Request Exception: {e}")
+        raise
 
 def edit_telegram_markup(message_id, reply_markup=None, chat_id=None):
     if not BOT_TOKEN:
