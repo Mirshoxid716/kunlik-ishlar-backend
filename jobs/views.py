@@ -6,6 +6,7 @@ from .serializers import JobSerializer, WorkerSerializer, ApplicationSerializer,
 from bot_app.utils import send_to_telegram, edit_telegram_markup
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
+import os
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.filter(is_staff=True)
